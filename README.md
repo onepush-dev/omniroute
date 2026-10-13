@@ -1,6 +1,6 @@
 # OmniRoute 3.8.51 — self-hosted AI gateway (one OpenAI-compatible endpoint for 100+ LLM providers). Deploy on Railway with one click.
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/TEMPLATE_CODE)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/-M1_qf)
 
 OmniRoute is a unified AI router/proxy: connect Claude Code, Codex, Gemini, Copilot, OpenRouter, Ollama and more, then point any client at a single `/v1` endpoint with combos, fallbacks, quotas, cost tracking and a full dashboard.
 
