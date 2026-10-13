@@ -7,13 +7,19 @@ OmniRoute is a unified AI router/proxy: connect Claude Code, Codex, Gemini, Copi
 ## Why this template
 - **Latest release:** `diegosouzapw/omniroute:3.8.51`, pinned by digest `sha256:8bd462c9f60d8eda79329cfbb6ea7ea723505fe7721beb944f3d43835409e218`.
 - **Zero deploy-time config:** every secret (admin password, JWT, API-key encryption key, WS bridge secret, machine salt) is auto-generated.
-- **Persistence that actually works:** Railway volume at `/app/data`; a tiny entrypoint fixes the root-owned volume and then drops back to the non-root `node` user (uid 1000) — no `RAILWAY_RUN_UID=0` needed.
+- **Persistence that actually works:** Railway volume at `/app/data`; a tiny entrypoint fixes the root-owned volume and then drops back to the non-root `node` user (uid 1000) so the app itself still runs unprivileged.
 - **Secure by default:** HTTPS-only session cookies, `/v1/*` requires an OmniRoute API key, health check on `/healthz`.
 
 ## Services
 | Service | Source | Notes |
 |---|---|---|
-| omniroute | this repo (`Dockerfile` → `diegosouzapw/omniroute:3.8.51@sha256:8bd462c9…`) | port 20128, public domain, volume `/app/data`, health `/healthz` |
+| omniroute | `diegosouzapw/omniroute:3.8.51@sha256:8bd462c9f60d8eda79329cfbb6ea7ea723505fe7721beb944f3d43835409e218` | port 20128, public domain, volume `/app/data`, health `/healthz`, custom start command (below) |
+
+**Start command** (fixes root-owned volume, then drops to uid 1000):
+```
+/bin/sh -c "mkdir -p /app/data && chown -R 1000:1000 /app/data && cd /app && if command -v setpriv >/dev/null 2>&1; then exec setpriv --reuid=1000 --regid=1000 --init-groups env HOME=/home/node /app/check-permissions.sh node dev/run-standalone.mjs; else exec /app/check-permissions.sh node dev/run-standalone.mjs; fi"
+```
+The repo's `Dockerfile` + `railway-entrypoint.sh` do the same thing if you prefer deploying from source.
 
 ## Variables
 | Variable | Template value | Secret |
@@ -32,6 +38,7 @@ OmniRoute is a unified AI router/proxy: connect Claude Code, Codex, Gemini, Copi
 | REQUIRE_API_KEY | `true` (create keys in Dashboard → API Keys) | |
 | OMNIROUTE_MEMORY_MB | `1024` (raise for big fusion combos) | |
 | RAILWAY_DEPLOYMENT_DRAINING_SECONDS | `40` | |
+| RAILWAY_RUN_UID | `0` (start as root only to chown the volume; the app itself runs as uid 1000) | |
 
 ## After deploy
 1. Open the public URL and log in with `INITIAL_PASSWORD` (Railway → service → Variables). Change it under Settings → Security.
@@ -41,5 +48,6 @@ OmniRoute is a unified AI router/proxy: connect Claude Code, Codex, Gemini, Copi
 ## Notes
 - Health: `/healthz` (lifecycle, used by Railway), `/livez`, and `/api/monitoring/health` (deep diagnostics).
 - Single SQLite database in `/app/data` — run **one replica** only.
-- Optional: set `STORAGE_ENCRYPTION_KEY` (`openssl rand -hex 32`) for full DB encryption at rest; back the key up — losing it means losing data.
+- On first boot OmniRoute auto-generates `STORAGE_ENCRYPTION_KEY` and persists it to `/app/data/server.env` (on the volume) — back up the volume; losing that file means losing encrypted data.
+- Startup logs print many `[Migration] Skipped …` / `[bootstrap]` lines at error level — they are informational.
 - Upstream: https://github.com/diegosouzapw/OmniRoute (MIT).
